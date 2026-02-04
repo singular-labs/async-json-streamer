@@ -122,7 +122,7 @@ impl<R: AsyncRead + Unpin> AsyncJsonStreamReader<R> {
     }
 
     /// Peek at the next JSON token without consuming it.
-    async fn peek_token(&mut self) -> Result<Option<JsonToken>, AsyncJsonStreamReaderError> {
+    pub async fn peek_token(&mut self) -> Result<Option<JsonToken>, AsyncJsonStreamReaderError> {
         let saved_position = self.position;
         let saved_depth = self.depth;
         let saved_state = self.state;
@@ -706,7 +706,7 @@ impl<R: AsyncRead + Unpin> AsyncJsonStreamReader<R> {
         }
     }
 
-    async fn skip_value(&mut self) -> Result<(), AsyncJsonStreamReaderError> {
+    pub async fn skip_value(&mut self) -> Result<(), AsyncJsonStreamReaderError> {
         let value_start_depth = self.depth;
         let token =
             self.next_token()
@@ -741,6 +741,7 @@ impl<R: AsyncRead + Unpin> AsyncJsonStreamReader<R> {
                 });
             }
         }
+        self.state = ReaderState::Object;
         Ok(())
     }
 
