@@ -73,6 +73,47 @@ All fallible operations return `AsyncJsonStreamReaderError`:
 
 Minimum supported Rust version is **1.74**.
 
+## Benchmark (Serde vs asyncjsonstream)
+
+The examples folder includes a generator and benchmark for a single large JSON object with a
+`rows` array. This comparison highlights the memory savings when you **stream and skip** large
+fields instead of deserializing full objects.
+
+### Generate a 5GB fixture
+
+```bash
+cargo run --release --example generate_big_object -- \
+  --path /tmp/big_object.json \
+  --target-bytes 5368709120 \
+  --payload-bytes 1024
+```
+
+### Run benchmarks (macOS)
+
+```bash
+/usr/bin/time -l cargo run --release --example bench_big_object -- \
+  --path /tmp/big_object.json --mode async
+
+/usr/bin/time -l cargo run --release --example bench_big_object -- \
+  --path /tmp/big_object.json --mode async-light
+
+/usr/bin/time -l cargo run --release --example bench_big_object -- \
+  --path /tmp/big_object.json --mode serde
+```
+
+`async` deserializes each row into a `serde_json::Value` (higher memory). `async-light` only
+reads `id` and skips other fields using tokens (low memory).
+
+### Results (MacBook Pro, macOS, 5GB file, payload 1KB)
+
+| Mode         | Rows     | Elapsed (ms) | Max RSS (bytes) | Peak footprint (bytes) |
+|--------------|----------|--------------|-----------------|------------------------|
+| async        | 4,979,433 | 7,432        | 3,320,676,352   | 5,382,197,400          |
+| async-light  | 4,979,433 | 10,340       | 2,916,352       | 2,146,616              |
+| serde        | 4,979,433 | 6,662        | 10,902,372,352  | 14,253,713,704         |
+
+Checksums matched across modes, confirming identical `id` aggregation.
+
 ## License
 
 Licensed under either of:
