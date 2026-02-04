@@ -122,7 +122,7 @@ impl<R: AsyncRead + Unpin> AsyncJsonStreamReader<R> {
     }
 
     /// Peek at the next JSON token without consuming it.
-    async fn peek_token(&mut self) -> Result<Option<JsonToken>, AsyncJsonStreamReaderError> {
+    pub async fn peek_token(&mut self) -> Result<Option<JsonToken>, AsyncJsonStreamReaderError> {
         let saved_position = self.position;
         let saved_depth = self.depth;
         let saved_state = self.state;
@@ -706,7 +706,7 @@ impl<R: AsyncRead + Unpin> AsyncJsonStreamReader<R> {
         }
     }
 
-    async fn skip_value(&mut self) -> Result<(), AsyncJsonStreamReaderError> {
+    pub async fn skip_value(&mut self) -> Result<(), AsyncJsonStreamReaderError> {
         let value_start_depth = self.depth;
         let token =
             self.next_token()
@@ -741,6 +741,7 @@ impl<R: AsyncRead + Unpin> AsyncJsonStreamReader<R> {
                 });
             }
         }
+        self.state = ReaderState::Object;
         Ok(())
     }
 
@@ -1079,6 +1080,35 @@ mod tests {
         assert_eq!(reader.read_number::<i32>().await.unwrap(), 3);
 
         assert!(reader.next_object_entry().await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_skip_value_resets_state_for_next_entry() {
+        let mut reader = create_reader(r#"{"a": {"x": 1}, "b": 2}"#);
+
+        let key = reader.next_object_entry().await.unwrap().unwrap();
+        assert_eq!(key, "a");
+
+        // Explicitly skip the value for "a".
+        reader.skip_value().await.unwrap();
+
+        let key = reader.next_object_entry().await.unwrap().unwrap();
+        assert_eq!(key, "b");
+        assert_eq!(reader.read_number::<i32>().await.unwrap(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_peek_token_does_not_consume() {
+        let mut reader = create_reader(r#"{"a": 1}"#);
+
+        assert_eq!(
+            reader.peek_token().await.unwrap(),
+            Some(JsonToken::StartObject)
+        );
+        assert_eq!(
+            reader.next_token().await.unwrap(),
+            Some(JsonToken::StartObject)
+        );
     }
 
     #[tokio::test]
